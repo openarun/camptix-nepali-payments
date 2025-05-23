@@ -45,8 +45,14 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
 
     function template_redirect()
     {
+
+        if (!isset($_GET['nonce']) || !wp_verify_nonce($_GET['nonce'], 'camptix_khalti_nonce')) {
+            wp_die('Invalid request.');
+        }
+
         if (!isset($_REQUEST['tix_payment_method']) || 'camptix_khalti' != $_REQUEST['tix_payment_method'])
             return;
+
         if (isset($_GET['tix_action'])) {
             if ('payment_cancel' == $_GET['tix_action']) {
                 $this->payment_cancel();
@@ -62,15 +68,13 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
     {
         global $camptix;
 
-        $this->log(sprintf('Running payment_return. Request data attached.'), null, $_REQUEST);
-        $this->log(sprintf('Running payment_return. Server data attached.'), null, $_SERVER);
-
-        $payment_token = (isset($_REQUEST['tix_payment_token'])) ? trim($_REQUEST['tix_payment_token']) : '';
-        $payment_token = (isset($_REQUEST['tix_payment_token'])) ? trim($_REQUEST['tix_payment_token']) : '';
+        $payment_token = (isset($_REQUEST['tix_payment_token'])) ? sanitize_text_field(trim($_REQUEST['tix_payment_token'])) : '';
         if (empty($payment_token)) {
             return;
         }
-        $pidx = isset($_GET['pidx']) ?  $_GET['pidx'] : "";
+
+        $pidx = isset($_GET['pidx']) ?  sanitize_text_field($_GET['pidx']) : "";
+
         $status = $this->verify_transaction($pidx);
 
         switch ($status) {
@@ -118,11 +122,10 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
 
     public function payment_checkout($payment_token)
     {
-        global $camptix;
 
         if (!$payment_token || empty($payment_token))
             return false;
-        if (!in_array($this->camptix_options['currency'], $this->supported_currencies))
+        if (!in_array($this->camptix_options['currency'], $this->supported_currencies, true))
             die(__('The selected currency is not supported by this payment method.', 'camptix'));
         $return_url = add_query_arg(array(
             'tix_action' => 'payment_return',
@@ -132,7 +135,6 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
 
 
         $order = $this->get_order($payment_token);
-
 
         $buyer_name = trim(get_post_meta($order['attendee_id'], 'tix_first_name', true) . ' ' . get_post_meta($order['attendee_id'], 'tix_last_name', true));
         $buyer_email = get_post_meta($order['attendee_id'], 'tix_email', true);
@@ -151,6 +153,12 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
         $amount       = intval($order['total'] * 100);
         $customer_name  = sanitize_text_field($buyer_name);
         $customer_email = sanitize_email($buyer_email);
+
+        if (!is_email($customer_email)) {
+            $this->log('Invalid email format provided: ' . esc_html($buyer_email));
+            return $this->payment_result($payment_token, CampTix_Plugin::PAYMENT_STATUS_FAILED);
+        }
+
         $customer_phone =  sanitize_text_field($buyer_phone);
 
         $payload = [
@@ -177,12 +185,15 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
         $remote_response = wp_remote_post($url, array(
             'method' => 'POST',
             'headers' => $headers,
-            'body' => wp_json_encode($payload)
+            'body' => wp_json_encode($payload),
+            'timeout' => 15,
+            'blocking' => true,
         ));
 
         if (is_wp_error($remote_response)) {
             $error_message = $remote_response->get_error_message();
-            $this->log(sprintf("Remote Request failed:" . $error_message . ': %s', null, "failed_remote_request"));
+            $this->log('Khalti Remote Request failed: ' . esc_html($error_message));
+
             return $this->payment_result($payment_token, CampTix_Plugin::PAYMENT_STATUS_FAILED);
         } else {
             $result = json_decode(wp_remote_retrieve_body($remote_response), true);
@@ -220,7 +231,9 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method
         $remote_response = wp_remote_post($url, array(
             'method' => 'POST',
             'headers' => $headers,
-            'body' => wp_json_encode($payload)
+            'body' => wp_json_encode($payload),
+            'timeout' => 15,
+            'blocking' => true,
         ));
 
         if (is_wp_error($remote_response)) {
