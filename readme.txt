@@ -1,4 +1,4 @@
-=== CampTix Nepali Payments ===
+=== Nepali Payments for CampTix ===
 Contributors: arunpyasi
 Tags: camptix, nepali, payments, gateway
 Requires at least: 3.5
@@ -11,7 +11,7 @@ Add Nepali payment gateway support to CampTix for accepting payments in Nepali R
 
 == Description ==
 
-CampTix Nepali Payments adds Nepali payment gateways support to the CampTix plugin, allowing you to accept payments in Nepali Rupees (NPR).
+Nepali Payments for CampTix adds Nepali payment gateways support to the CampTix plugin, allowing you to accept payments in Nepali Rupees (NPR).
 
 = Supported Payment Gateways =
 * [Khalti](https://khalti.com/)
@@ -28,7 +28,7 @@ CampTix plugin needs to be installed and activated for the Camptix Nepali Paymen
 
 == Installation ==
 
-1. Upload `camptix-nepali-payments` to the `/wp-content/plugins/` directory
+1. Upload `nepali-payments-for-camptix` to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Go to `Tickets -> Setup` in your WordPress admin area
 4. Set the currency to NPR

@@ -55,6 +55,15 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
      * @return void
      */
     public function camptix_init() {
+
+        wp_register_script(
+            'camptix-khalti-redirect',
+            plugin_dir_url( dirname( __FILE__ ) ) . 'js/khalti-redirect.js',
+            array(),
+            filemtime( plugin_dir_path( dirname( __FILE__ ) ) . 'js/khalti-redirect.js' ),
+            true
+        );
+
         $this->options = array_merge(
             array(
                 'ref_code'      => '',
@@ -73,9 +82,9 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
      * @return void
      */
     public function payment_settings_fields() {
-        $this->add_settings_field_helper( 'ref_code', __( 'Reference Code', 'camptix-nepali-payments' ), array( $this, 'field_text' ) );
-        $this->add_settings_field_helper( 'merchant_key', __( 'Merchant Key', 'camptix-nepali-payments' ), array( $this, 'field_text' ) );
-        $this->add_settings_field_helper( 'sandbox', __( 'Sandbox Mode', 'camptix-nepali-payments' ), array( $this, 'field_yesno' ) );
+        $this->add_settings_field_helper( 'ref_code', __( 'Reference Code', 'nepali-payments-for-camptix' ), array( $this, 'field_text' ) );
+        $this->add_settings_field_helper( 'merchant_key', __( 'Merchant Key', 'nepali-payments-for-camptix' ), array( $this, 'field_text' ) );
+        $this->add_settings_field_helper( 'sandbox', __( 'Sandbox Mode', 'nepali-payments-for-camptix' ), array( $this, 'field_yesno' ) );
     }
 
     /**
@@ -110,8 +119,8 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
             return;
         }
 
-        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'camptix_nepali_payments' ) ) {
-            wp_die( esc_html__( 'Security check failed. Please try again.', 'camptix-nepali-payments' ) );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'nepali-payments-for-camptix' ) ) {
+            wp_die( esc_html__( 'Security check failed. Please try again.', 'nepali-payments-for-camptix' ) );
         }
 
         if ( isset( $_GET['tix_action'] ) && !empty(sanitize_text_field( wp_unslash( $_GET['tix_action'] ) )) ) {
@@ -130,8 +139,8 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
     public function payment_return() {
         global $camptix;
 
-        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'camptix_nepali_payments' ) ) {
-            wp_die( esc_html__( 'Security check failed. Please try again.', 'camptix-nepali-payments' ) );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'nepali-payments-for-camptix' ) ) {
+            wp_die( esc_html__( 'Security check failed. Please try again.', 'nepali-payments-for-camptix' ) );
         }
 
         $payment_token = isset( $_REQUEST['tix_payment_token'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['tix_payment_token'] ) ) : '';
@@ -144,22 +153,22 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
 
         switch ( $status ) {
             case 'Completed':
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_COMPLETED, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_COMPLETED, $pidx );
                 break;
             case 'Pending':
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_PENDING, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_PENDING, $pidx );
                 break;
             case 'Expired':
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_TIMEOUT, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_TIMEOUT, $pidx );
                 break;
             case 'Initiated':
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_PENDING, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_PENDING, $pidx );
                 break;
             case 'User canceled':
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_CANCELLED, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_CANCELLED, $pidx );
                 break;
             default:
-                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_FAILED, $_GET );
+                $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_FAILED, $pidx );
                 $this->log( 'Unknown camptix khalti payment status for pidx' .$pidx.':'. esc_html( $status ) );
                 break;
         }
@@ -199,6 +208,42 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
     }
 
     /**
+     * Output the redirect page with proper script enqueuing
+     *
+     * @param string $payment_url Khalti payment URL to redirect to.
+     */
+    private function output_khalti_redirect_page( $payment_url ) {
+        wp_enqueue_script( 'camptix-khalti-redirect' );
+        wp_localize_script(
+            'camptix-khalti-redirect',
+            'camptixKhaltiData',
+            array(
+                'paymentUrl' => $payment_url,
+            )
+        );
+        ?>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title><?php esc_html_e( 'Redirecting to Khalti Payment', 'nepali-payments-for-camptix' ); ?></title>
+        </head>
+        <body>
+            <p><?php esc_html_e( 'Redirecting you to Khalti Payment...', 'nepali-payments-for-camptix' ); ?></p>
+            <p>
+                <?php esc_html_e( 'If you are not redirected automatically,', 'nepali-payments-for-camptix' ); ?>
+                <a href="<?php echo esc_url( $payment_url ); ?>">
+                    <?php esc_html_e( 'click here', 'nepali-payments-for-camptix' ); ?>
+                </a>.
+            </p>
+            <?php wp_footer(); ?>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
+
+    /**
      * Handle payment checkout
      *
      * @param string $payment_token Payment token.
@@ -210,7 +255,7 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
         }
 
         if ( ! in_array( $this->camptix_options['currency'], $this->supported_currencies, true ) ) {
-            wp_die( esc_html__( 'The selected currency is not supported by this payment method.', 'camptix-nepali-payments' ) );
+            wp_die( esc_html__( 'The selected currency is not supported by this payment method.', 'nepali-payments-for-camptix' ) );
         }
 
         $return_url = add_query_arg(
@@ -218,7 +263,7 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
                 'tix_action'         => 'payment_return',
                 'tix_payment_token'  => $payment_token,
                 'tix_payment_method' => 'camptix_khalti',
-                '_wpnonce'           => wp_create_nonce( 'camptix_nepali_payments' ),
+                '_wpnonce'           => wp_create_nonce( 'nepali-payments-for-camptix' ),
             ),
             $this->get_tickets_url()
         );
@@ -299,14 +344,7 @@ class CampTix_Khalti_Payment_Method extends CampTix_Payment_Method {
 
         $result = json_decode( wp_remote_retrieve_body( $remote_response ), true );
         if ( isset( $result['payment_url'] ) ) {
-            // Redirect to Khalti payment URL using JavaScript to avoid #tix issue in the URL
-            ?>
-            <script type="text/javascript">
-                window.location.href = <?php echo wp_json_encode( $result['payment_url'] ); ?>;
-            </script>
-            <p>Redirecting you to Khalti Payment</p>
-            <?php
-            exit;
+            $this->output_khalti_redirect_page( esc_url_raw($result['payment_url']) );
         }
 
         return $this->payment_result( $payment_token, CampTix_Plugin::PAYMENT_STATUS_FAILED );

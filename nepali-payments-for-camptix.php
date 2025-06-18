@@ -1,15 +1,15 @@
 <?php
-/**
- * Plugin Name: CampTix Nepali Payments
+/*
+ * Plugin Name: Nepali Payments for CampTix
  * Description: Nepali Payment Gateways for CampTix - Accept payments in Nepali Rupees (NPR)
  * Author: Arun Kumar Pariyar
  * Author URI: http://github.com/openarun
+ * Text Domain: nepali-payments-for-camptix
  * Version: 1.0.0
  * Requires at least: 3.5
  * Tested up to: 6.8
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: camptix-nepali-payments
  *
  * @package CampTix_Nepali_Payments
  */
@@ -95,7 +95,7 @@ class CampTix_Nepali_Payments {
 	 */
 	public function add_currency( $currencies ) {
 		$currencies['NPR'] = array(
-			'label'         => __( 'NPR', 'camptix-nepali-payments' ),
+			'label'         => __( 'NPR', 'nepali-payments-for-camptix' ),
 			'format'        => 'NPR %s',
 			'decimal_point' => 2,
 		);
